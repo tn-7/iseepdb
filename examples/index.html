@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <title>Protein Viewer</title>
+  <link href="../dist/style.css" rel="stylesheet" type="text/css">
+  <link rel="icon" href="../img/favicon.png">
+  <!-- the library for the webcomponent -->
+</head>
+<body class="demo">
+  <div id=inspector>
+    <h1>Choose Style</h1>
+    <ul>
+      <li id=preset>Preset</li>
+      <li id=cartoon>Cartoon</li>
+      <li id=tube>Tube</li>
+      <li id=lines>Lines</li>
+      <li id=line-trace>Line Trace</li>
+      <li id=sline>Smooth Line Trace</li>
+      <li id=trace>Trace</li>
+    </ul>
+    <span><a href='index.html'>About</a> | Code on <a href="http://github.com/Nikhil-Vats/bio-pv-web-component">github.com</a></span>
+  </div>
+  <bio-pv-web id="bio-pv-web" quality="high" structureStyle="tube" fov="45" background-color="white" outline="true"></bio-pv-web>
+  <div id="status">initialising...</div>
+  <script src="../dist/bundle.js" type="module"></script>
+</body>
+</html>
