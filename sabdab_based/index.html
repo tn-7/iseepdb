@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <title>Protein Structure Viewer</title>
+    <!-- Include the PV viewer library -->
     <script type="text/javascript" src="https://biasmv.github.io/pv/js/pv.min.js"></script>
 </head>
 <body>
     <!-- Configuration for specific PDB -->
     <script>
-        var structurefile = 'https://tn-7.github.io/iseepdb/1ezv.pdb';
+        // Update the structurefile to point to your local PDB file
+        var structurefile = 'pdbs/6pv8.pdb';
         var heavy_chains = ['H', 'F'];
         var light_chains = ['I', 'G'];
         var cartoon_ag = ['A', 'B', 'D', 'E'];
@@ -87,6 +89,35 @@
             var viewWindow = document.getElementById('viewer');
             viewer = pv.Viewer(viewWindow, viewer_options);
 
+            // Event listener for viewer clicks
+            var previousSelection = null;
+            viewer.on('click', function(picked, event) {
+                // Clear previous selection
+                if (previousSelection) {
+                    previousSelection.node().setSelection(null);
+                }
+
+                // If an atom/residue is picked
+                if (picked) {
+                    var selection = picked.node().structure().createEmptyView();
+                    picked.target().residue().atoms().forEach(function(atom) {
+                        selection.addAtom(atom);
+                    });
+                    picked.node().setSelection(selection);
+
+                    // Update label
+                    var labelDiv = document.querySelector('.window-label');
+                    labelDiv.innerHTML = picked.target().residue().qualifiedName();
+
+                    previousSelection = picked;
+                } else {
+                    // Clear label
+                    var labelDiv = document.querySelector('.window-label');
+                    labelDiv.innerHTML = '';
+                }
+                viewer.requestRedraw();
+            });
+
             fetchPDB(structurefile);
         }
 
@@ -94,9 +125,9 @@
         function fetchPDB(url) {
             var oReq = new XMLHttpRequest();
             oReq.open('GET', url, true);
-            oReq.onload = function() {
-                if (oReq.response) {
-                    structure = pv.io.pdb(oReq.response);
+            oReq.onreadystatechange = function() {
+                if (oReq.readyState === 4 && oReq.status === 200) {
+                    structure = pv.io.pdb(oReq.responseText);
                     pv.mol.assignHelixSheet(structure);
 
                     // Set CDR properties
@@ -127,6 +158,7 @@
                     cartoon_antigens = structure.select({ chain: cartoon_ag });
                     stick_antigens = structure.select({ rnames: stick_ag });
 
+                    // Render the structure
                     showAB(renderstyle);
                     viewer.autoZoom();
                 }
@@ -337,24 +369,8 @@
             }
         }
 
-        // Event listeners
+        // Initialize the viewer after the page loads
         document.addEventListener('DOMContentLoaded', initViewer);
-
-        var previousSelection = null;
-        viewer && viewer.on('click', function(picked, event) {
-            if (previousSelection) {
-                previousSelection.node().setSelection(null);
-            }
-            if (picked) {
-                var selection = picked.node().structure().createEmptyView();
-                picked.target().residue().atoms().forEach(function(atom) {
-                    selection.addAtom(atom);
-                });
-                picked.node().setSelection(selection);
-                previousSelection = picked;
-            }
-            viewer.requestRedraw();
-        });
     </script>
 </body>
 </html>
