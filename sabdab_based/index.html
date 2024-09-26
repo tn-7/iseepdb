@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Protein Structure Viewer</title>
+    <script type="text/javascript" src="https://biasmv.github.io/pv/js/pv.min.js"></script>
+</head>
+<body>
+    <!-- Configuration for specific PDB -->
+    <script>
+        var structurefile = 'https://files.rcsb.org/download/6pv8.pdb';
+        var heavy_chains = ['H', 'F'];
+        var light_chains = ['I', 'G'];
+        var cartoon_ag = ['A', 'B', 'D', 'E'];
+        var Fv_chains = ['H', 'F', 'I', 'G'];
+        var stick_ag = [];
+    </script>
+
+    <!-- Viewer and Options -->
+    <table>
+        <tbody>
+            <tr>
+                <td>
+                    <div id="viewer" style="height: 504px; width: 504px; border: 2px solid #002147;">
+                        <div class="window-label"></div>
+                    </div>
+                    <font size="3">Please note the WebGL plugin needs to be enabled to use PV Viewer.</font>
+                </td>
+                <td class="structurekey">
+                    <div id="colorkey">
+                        <p><b>Key (Default Scheme)</b>:</p>
+                        <font color="#64CCF8">VH Chains</font><br>
+                        <font color="#FF9698">VL Chains</font><br>
+                        <font color="#002147">CDRs</font><br>
+                        <font color="#D4D4D4">Antigen Chains</font><br>
+                    </div>
+                    <br>
+                    <p><b>Display options</b>:</p>
+                    <form name="displayoptions" style="padding-left: 10px;">
+                        <label><input type="radio" name="displayoptions" onclick="showAB('spheres')"> Spacefill</label><br>
+                        <label><input type="radio" name="displayoptions" onclick="showAB('lines')"> Wire</label><br>
+                        <label><input type="radio" name="displayoptions" onclick="showAB('sticks')"> Ball &amp; Stick</label><br>
+                        <label><input type="radio" name="displayoptions" onclick="showAB('cartoon')" checked> Cartoon</label><br>
+                    </form>
+                    <br>
+                    <p><b>Colour options</b>:</p>
+                    <form name="colouroptions" style="padding-left: 10px;">
+                        <label><input type="radio" name="colouroptions" onclick="defaultColor()" checked> Default colours</label><br>
+                        <label><input type="radio" name="colouroptions" onclick="bfactor()"> Colour by B-factor</label><br>
+                        <label><input type="radio" name="colouroptions" onclick="chainColor()"> Colour by chain</label><br>
+                        <label><input type="radio" name="colouroptions" onclick="ssColor()"> Colour by sec. structure</label><br>
+                        <label><input type="radio" name="colouroptions" onclick="elemColor()"> Colour by element</label><br>
+                    </form>
+                    <br>
+                    <label style="padding-left: 10px;">
+                        <input type="checkbox" name="spintoggle" id="spin" onclick="viewSpin()"> Spin on/off
+                    </label>
+                    <br><br>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- JavaScript Functions -->
+    <script type="text/javascript">
+        var viewer_options = {
+            width: 500,
+            height: 500,
+            selectionColor: '#FDB927',
+            antialias: true,
+            quality: 'medium',
+            outlineColor: '#002147',
+            backgroundColor: 'white'
+        };
+
+        var viewer = null;
+        var structure = null;
+        var renderstyle = 'cartoon';
+        var colorstyle = 'default';
+        var heavy = null;
+        var light = null;
+        var cartoon_antigens = null;
+        var stick_antigens = null;
+
+        // Initialize the viewer
+        function initViewer() {
+            var viewWindow = document.getElementById('viewer');
+            viewer = pv.Viewer(viewWindow, viewer_options);
+
+            fetchPDB(structurefile);
+        }
+
+        // Fetch the PDB file
+        function fetchPDB(url) {
+            var oReq = new XMLHttpRequest();
+            oReq.open('GET', url, true);
+            oReq.onload = function() {
+                if (oReq.response) {
+                    structure = pv.io.pdb(oReq.response);
+                    pv.mol.assignHelixSheet(structure);
+
+                    // Set CDR properties
+                    structure.eachResidue(function(residue) {
+                        var chainName = residue.chain().name();
+                        var resNum = residue.num();
+
+                        if (heavy_chains.includes(chainName)) {
+                            if ((resNum >= 26 && resNum <= 32) || (resNum >= 52 && resNum <= 56) || (resNum >= 95 && resNum <= 102)) {
+                                residue.setProp("CDR", 1);
+                            } else {
+                                residue.setProp("CDR", 0);
+                            }
+                        } else if (light_chains.includes(chainName)) {
+                            if ((resNum >= 24 && resNum <= 34) || (resNum >= 50 && resNum <= 56) || (resNum >= 89 && resNum <= 97)) {
+                                residue.setProp("CDR", 1);
+                            } else {
+                                residue.setProp("CDR", 0);
+                            }
+                        } else {
+                            residue.setProp("CDR", 0);
+                        }
+                    });
+
+                    // Create selections
+                    heavy = structure.select({ chain: heavy_chains });
+                    light = structure.select({ chain: light_chains });
+                    cartoon_antigens = structure.select({ chain: cartoon_ag });
+                    stick_antigens = structure.select({ rnames: stick_ag });
+
+                    showAB(renderstyle);
+                    viewer.autoZoom();
+                }
+            };
+            oReq.send();
+        }
+
+        // Display functions
+        function showAB(style) {
+            viewer.clear();
+            renderstyle = style;
+            switch (colorstyle) {
+                case "default":
+                    defaultColor();
+                    break;
+                case "bfactor":
+                    bfactor();
+                    break;
+                case "chain":
+                    chainColor();
+                    break;
+                case "secondary structure":
+                    ssColor();
+                    break;
+                case "element":
+                    elemColor();
+                    break;
+                default:
+                    defaultColor();
+            }
+            viewer.requestRedraw();
+        }
+
+        function defaultColor() {
+            viewer.clear();
+            switch (renderstyle) {
+                case "cartoon":
+                    viewer.cartoon("heavy", heavy, { color: colourChothia() });
+                    viewer.cartoon("light", light, { color: colourChothia() });
+                    viewer.cartoon("antigens", cartoon_antigens, { color: pv.color.uniform('#D4D4D4') });
+                    break;
+                case "sticks":
+                    viewer.ballsAndSticks("heavy", heavy, { color: colourChothia() });
+                    viewer.ballsAndSticks("light", light, { color: colourChothia() });
+                    viewer.ballsAndSticks("antigens", cartoon_antigens, { color: pv.color.uniform('#D4D4D4') });
+                    break;
+                case "lines":
+                    viewer.lines("heavy", heavy, { color: colourChothia() });
+                    viewer.lines("light", light, { color: colourChothia() });
+                    viewer.lines("antigens", cartoon_antigens, { color: pv.color.uniform('#D4D4D4') });
+                    break;
+                case "spheres":
+                    viewer.spheres("heavy", heavy, { color: colourChothia() });
+                    viewer.spheres("light", light, { color: colourChothia() });
+                    viewer.spheres("antigens", cartoon_antigens, { color: pv.color.uniform('#D4D4D4') });
+                    break;
+                default:
+                    viewer.cartoon("heavy", heavy, { color: colourChothia() });
+                    viewer.cartoon("light", light, { color: colourChothia() });
+                    viewer.cartoon("antigens", cartoon_antigens, { color: pv.color.uniform('#D4D4D4') });
+            }
+            colorstyle = "default";
+            updateColorKey("default");
+        }
+
+        function ssColor() {
+            viewer.clear();
+            var colorBySS = pv.color.bySS();
+            renderStructure(colorBySS);
+            colorstyle = "secondary structure";
+            updateColorKey("ss");
+        }
+
+        function bfactor() {
+            viewer.clear();
+            var colorByBfactor = pv.color.byAtomProp('tempFactor');
+            renderStructure(colorByBfactor);
+            colorstyle = "bfactor";
+            updateColorKey("bfactor");
+        }
+
+        function chainColor() {
+            viewer.clear();
+            var colorByChain = pv.color.byChain();
+            renderStructure(colorByChain);
+            colorstyle = "chain";
+            updateColorKey("chain");
+        }
+
+        function elemColor() {
+            viewer.clear();
+            var colorByElement = pv.color.byElement();
+            renderStructure(colorByElement);
+            colorstyle = "element";
+            updateColorKey("element");
+        }
+
+        function renderStructure(colorScheme) {
+            switch (renderstyle) {
+                case "cartoon":
+                    viewer.cartoon("structure", structure, { color: colorScheme });
+                    break;
+                case "sticks":
+                    viewer.ballsAndSticks("structure", structure, { color: colorScheme });
+                    break;
+                case "lines":
+                    viewer.lines("structure", structure, { color: colorScheme });
+                    break;
+                case "spheres":
+                    viewer.spheres("structure", structure, { color: colorScheme });
+                    break;
+                default:
+                    viewer.cartoon("structure", structure, { color: colorScheme });
+            }
+        }
+
+        function updateColorKey(scheme) {
+            var element = document.getElementById("colorkey");
+            var keyHTML = "";
+            switch (scheme) {
+                case "default":
+                    keyHTML = "<p><b>Key (Default Scheme)</b>:</p>" +
+                              "<font color='#64CCF8'>VH Chains</font><br>" +
+                              "<font color='#FF9698'>VL Chains</font><br>" +
+                              "<font color='#002147'>CDRs</font><br>" +
+                              "<font color='#D4D4D4'>Antigen Chains</font><br>";
+                    break;
+                case "ss":
+                    keyHTML = "<p><b>Key (Secondary Structure)</b>:</p>" +
+                              "<font color='#9999E6'>α-Helix</font><br>" +
+                              "<font color='#33CC33'>β-Sheet</font><br>" +
+                              "<font color='#5b5b58'>Loops</font><br>";
+                    break;
+                case "bfactor":
+                    keyHTML = "<p><b>Key (B-factor)</b>:</p>" +
+                              "<p>Atoms colored by B-factor values.</p>";
+                    break;
+                case "chain":
+                    keyHTML = "<p><b>Key (Chain)</b>:</p>" +
+                              "<p>Each chain is colored uniquely.</p>";
+                    break;
+                case "element":
+                    keyHTML = "<p><b>Key (Element)</b>:</p>" +
+                              "<font color='#5b5b58'>Carbons</font><br>" +
+                              "<font color='#316FBA'>Nitrogens</font><br>" +
+                              "<font color='#ff2800'>Oxygens</font><br>" +
+                              "<font color='#ffa500'>Sulphurs</font><br>" +
+                              "<font color='#33CC33'>Others</font><br>";
+                    break;
+            }
+            element.innerHTML = keyHTML;
+        }
+
+        function colourChothia() {
+            return new pv.color.ColorOp(function(atom, out, index) {
+                var residue = atom.residue();
+                var chainName = residue.chain().name();
+
+                if (heavy_chains.includes(chainName)) {
+                    if (residue.prop("CDR") === 1) {
+                        // CDR regions in heavy chain
+                        out[index] = 0.0;
+                        out[index + 1] = 0.13;
+                        out[index + 2] = 0.28;
+                        out[index + 3] = 1.0;
+                    } else {
+                        // Non-CDR regions in heavy chain
+                        out[index] = 0.39;
+                        out[index + 1] = 0.8;
+                        out[index + 2] = 0.97;
+                        out[index + 3] = 1.0;
+                    }
+                } else if (light_chains.includes(chainName)) {
+                    if (residue.prop("CDR") === 1) {
+                        // CDR regions in light chain
+                        out[index] = 0.0;
+                        out[index + 1] = 0.13;
+                        out[index + 2] = 0.28;
+                        out[index + 3] = 1.0;
+                    } else {
+                        // Non-CDR regions in light chain
+                        out[index] = 1.0;
+                        out[index + 1] = 0.59;
+                        out[index + 2] = 0.60;
+                        out[index + 3] = 1.0;
+                    }
+                } else if (cartoon_ag.includes(chainName)) {
+                    // Antigen chains
+                    out[index] = 0.83;
+                    out[index + 1] = 0.83;
+                    out[index + 2] = 0.83;
+                    out[index + 3] = 1.0;
+                } else {
+                    // Other
+                    out[index] = 0.2;
+                    out[index + 1] = 0.8;
+                    out[index + 2] = 0.2;
+                    out[index + 3] = 1.0;
+                }
+            });
+        }
+
+        function viewSpin() {
+            if (document.getElementById('spin').checked) {
+                viewer.spin(true);
+            } else {
+                viewer.spin(false);
+            }
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', initViewer);
+
+        var previousSelection = null;
+        viewer && viewer.on('click', function(picked, event) {
+            if (previousSelection) {
+                previousSelection.node().setSelection(null);
+            }
+            if (picked) {
+                var selection = picked.node().structure().createEmptyView();
+                picked.target().residue().atoms().forEach(function(atom) {
+                    selection.addAtom(atom);
+                });
+                picked.node().setSelection(selection);
+                previousSelection = picked;
+            }
+            viewer.requestRedraw();
+        });
+    </script>
+</body>
+</html>
