@@ -72,6 +72,7 @@
           structure = pv.io.pdb(xhr.responseText);
           preset();
           viewer.centerOn(structure);
+          pv.Viewer.fitTo(structure);
         }
         document.getElementById('status').innerHTML = '';
       }
