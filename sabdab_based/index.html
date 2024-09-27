@@ -123,7 +123,7 @@
 
         // original fetch PDB
 
-        function load(pdb_id) {
+        function fetchPDB(pdb_id) {
           document.getElementById('status').innerHTML ='loading '+pdb_id;
           var xhr = new XMLHttpRequest();
           xhr.open('GET', 'pdbs/'+pdb_id+'.pdb');
@@ -141,49 +141,6 @@
 
 
         // Fetch the PDB file
-        function fetchPDB(url) {
-            var oReq = new XMLHttpRequest();
-            oReq.open('GET', url, true);
-            oReq.onreadystatechange = function() {
-                if (oReq.readyState === 4 && oReq.status === 200) {
-                    structure = pv.io.pdb(oReq.responseText);
-                    pv.mol.assignHelixSheet(structure);
-
-                    // Set CDR properties
-                    structure.eachResidue(function(residue) {
-                        var chainName = residue.chain().name();
-                        var resNum = residue.num();
-
-                        if (heavy_chains.includes(chainName)) {
-                            if ((resNum >= 26 && resNum <= 32) || (resNum >= 52 && resNum <= 56) || (resNum >= 95 && resNum <= 102)) {
-                                residue.setProp("CDR", 1);
-                            } else {
-                                residue.setProp("CDR", 0);
-                            }
-                        } else if (light_chains.includes(chainName)) {
-                            if ((resNum >= 24 && resNum <= 34) || (resNum >= 50 && resNum <= 56) || (resNum >= 89 && resNum <= 97)) {
-                                residue.setProp("CDR", 1);
-                            } else {
-                                residue.setProp("CDR", 0);
-                            }
-                        } else {
-                            residue.setProp("CDR", 0);
-                        }
-                    });
-
-                    // Create selections
-                    heavy = structure.select({ chain: heavy_chains });
-                    light = structure.select({ chain: light_chains });
-                    cartoon_antigens = structure.select({ chain: cartoon_ag });
-                    stick_antigens = structure.select({ rnames: stick_ag });
-
-                    // Render the structure
-                    showAB(renderstyle);
-                    viewer.autoZoom();
-                }
-            };
-            oReq.send();
-        }
 
         // Display functions
         function showAB(style) {
