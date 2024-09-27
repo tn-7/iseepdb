@@ -4,7 +4,7 @@
     <title>Dengue virus methyl transferase</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-    <link rel="stylesheet" type="text/css" href="design.css">
+    <link rel="stylesheet" href="design.css">
     </head>
 <body>
   <div id=gl>
@@ -76,9 +76,7 @@
       }
       xhr.send();
     }
-    function transferase() {
-      load('6pv8');
-    }
+
     document.getElementById('cartoon').onclick = cartoon;
     document.getElementById('line-trace').onclick = lineTrace;
     document.getElementById('preset').onclick = preset;
@@ -89,6 +87,6 @@
     window.onresize = function(event) {
       viewer.fitParent();
     }
-    document.addEventListener('DOMContentLoaded', transferase);
+    document.addEventListener('DOMContentLoaded', load('6pv8'));
   </script>
 </html>
