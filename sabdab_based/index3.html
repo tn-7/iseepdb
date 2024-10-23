@@ -4,15 +4,23 @@
     <title>Dengue Virus Methyl Transferase</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="design.css">
     <style>
       /* Add your CSS styles here */
       body {
         font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
       }
       #gl {
-        width: 800px;
+        width: 80%;
         height: 600px;
-        margin: auto;
+        margin-top: 20px;
+        position: relative;
+        border: 1px solid #ccc;
       }
       #inspector {
         text-align: center;
@@ -21,26 +29,35 @@
       #inspector ul {
         list-style-type: none;
         padding: 0;
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
       }
       #inspector li {
-        display: inline;
         margin: 0 10px;
         cursor: pointer;
         color: blue;
         text-decoration: underline;
+        padding: 5px 10px;
+        border: 1px solid transparent;
+        border-radius: 4px;
       }
-      #status {
+      #inspector li:hover {
+        background-color: #f0f0f0;
+        border-color: #ccc;
+      }
+      #status, #picked-atom-name {
         text-align: center;
         margin-top: 10px;
-      }
-      #picked-atom-name {
-        text-align: center;
-        margin-top: 10px;
+        font-size: 14px;
       }
     </style>
   </head>
   <body>
+    <!-- Viewer Container -->
     <div id="gl"></div>
+
+    <!-- Inspector for Visualization Styles -->
     <div id="inspector">
       <h1>Choose Style</h1>
       <ul>
@@ -53,11 +70,19 @@
         <li id="trace">Trace</li>
       </ul>
     </div>
+
+    <!-- Status Display -->
     <div id="status">Initializing...</div>
+
+    <!-- Picked Atom Name Display -->
     <div id="picked-atom-name">&nbsp;</div>
 
+    <!-- Include pv.js Library -->
     <script src="js/pv.min.js"></script>
+
+    <!-- Integrated Script -->
     <script>
+      // Initialize the Viewer
       var parent = document.getElementById('gl');
       var viewer = pv.Viewer(parent, {
         quality: 'medium',
@@ -67,16 +92,26 @@
         outline: true,
         selectionColor: 'red'
       });
+
       var structure;
       var lastAtom = null; // For measuring distances
       var prevPicked = null; // For highlighting atoms on mouseover
 
+      /**
+       * Sets the color for a specific atom.
+       * @param {Object} go - The graphics object.
+       * @param {Object} atom - The atom to color.
+       * @param {String|Array} color - The color to apply.
+       */
       function setColorForAtom(go, atom, color) {
         var view = go.structure().createEmptyView();
         view.addAtom(atom);
         go.colorBy(pv.color.uniform(color), view);
       }
 
+      /**
+       * Visualization Style Functions
+       */
       function lines() {
         viewer.clear();
         viewer.lines('structure', structure);
@@ -111,30 +146,44 @@
         viewer.clear();
         var ligand = structure.select({ rnames: ['RVP', 'SAH'] });
         viewer.ballsAndSticks('ligand', ligand);
-        var go = viewer.cartoon('protein', structure);
+        viewer.cartoon('protein', structure, { color: pv.color.ssSuccession() });
       }
 
+      /**
+       * Loads a PDB file and initializes the viewer.
+       * @param {String} pdb_id - The PDB ID to load.
+       */
       function load(pdb_id) {
         document.getElementById('status').innerHTML = 'Loading ' + pdb_id + '...';
         var xhr = new XMLHttpRequest();
         xhr.open('GET', 'pdbs/' + pdb_id + '.pdb');
         xhr.setRequestHeader('Content-type', 'application/x-pdb');
         xhr.onreadystatechange = function () {
-          if (xhr.readyState == 4) {
-            structure = pv.io.pdb(xhr.responseText);
-            preset();
-            viewer.centerOn(structure);
-            viewer.autoZoom();
-            document.getElementById('status').innerHTML = '';
+          if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+              structure = pv.io.pdb(xhr.responseText);
+              preset();
+              viewer.centerOn(structure);
+              viewer.autoZoom();
+              document.getElementById('status').innerHTML = 'Loaded PDB ID: ' + pdb_id;
+            } else {
+              document.getElementById('status').innerHTML = 'Failed to load PDB ID: ' + pdb_id;
+            }
           }
         };
         xhr.send();
       }
 
+      /**
+       * Loads the default PDB structure on page load.
+       */
       function transferase() {
-        load('6pv8');
+        load('6pv8'); // Change to your desired default PDB ID
       }
 
+      /**
+       * Attach Event Listeners to Inspector Buttons
+       */
       document.getElementById('cartoon').onclick = cartoon;
       document.getElementById('line-trace').onclick = lineTrace;
       document.getElementById('preset').onclick = preset;
@@ -143,12 +192,59 @@
       document.getElementById('sline').onclick = sline;
       document.getElementById('tube').onclick = tube;
 
-      window.onresize = function (event) {
+      /**
+       * Handle Window Resize to Fit Viewer to Parent
+       */
+      window.onresize = function () {
         viewer.fitParent();
       };
+
+      /**
+       * Initialize the Viewer on DOM Content Loaded
+       */
       document.addEventListener('DOMContentLoaded', transferase);
 
-      // Click handler for measuring distances between atoms
+      /**
+       * Mousemove Handler for Highlighting Atoms on Hover
+       */
+      parent.addEventListener('mousemove', function (event) {
+        var rect = viewer.boundingClientRect();
+        var x = event.clientX - rect.left;
+        var y = event.clientY - rect.top;
+        var picked = viewer.pick({ x: x, y: y });
+
+        // If the same atom is picked as before, do nothing
+        if (prevPicked !== null && picked !== null && picked.target() === prevPicked.atom) {
+          return;
+        }
+
+        // Reset color of previously picked atom
+        if (prevPicked !== null) {
+          setColorForAtom(prevPicked.node, prevPicked.atom, prevPicked.color);
+        }
+
+        if (picked !== null) {
+          var atom = picked.target();
+          document.getElementById('picked-atom-name').innerHTML = atom.qualifiedName();
+
+          // Get the current color of the atom
+          var color = [0, 0, 0, 0];
+          picked.node().getColorForAtom(atom, color);
+          prevPicked = { atom: atom, color: color, node: picked.node() };
+
+          // Highlight the atom in red
+          setColorForAtom(picked.node(), atom, 'red');
+        } else {
+          document.getElementById('picked-atom-name').innerHTML = '&nbsp;';
+          prevPicked = null;
+        }
+
+        viewer.requestRedraw();
+      });
+
+      /**
+       * Click Handler for Measuring Distances Between Atoms
+       */
       viewer.addListener('click', function (picked) {
         if (picked === null) return;
         var target = picked.target();
@@ -157,51 +253,30 @@
         }
         var node = picked.node();
         var view = node.structure().createEmptyView();
+
         if (lastAtom !== null) {
           // Remove previous distance measurements
           viewer.rm('dist.*');
+
           var g = viewer.customMesh('dist.line');
           var midPoint = pv.vec3.clone(lastAtom.pos());
           pv.vec3.add(midPoint, midPoint, target.pos());
           pv.vec3.scale(midPoint, midPoint, 0.5);
+
           // Add a tube connecting the two atoms
           g.addTube(lastAtom.pos(), target.pos(), 0.1, { cap: true, color: 'white' });
+
+          // Calculate and display the distance
           var d = pv.vec3.distance(lastAtom.pos(), target.pos());
           viewer.label('dist.label', d.toFixed(2) + ' Å', midPoint);
+
           lastAtom = null;
         } else {
           lastAtom = target;
           view.addAtom(target);
         }
-        node.setSelection(view);
-        viewer.requestRedraw();
-      });
 
-      // Mousemove handler for highlighting atoms on hover
-      parent.addEventListener('mousemove', function (event) {
-        var rect = viewer.boundingClientRect();
-        var picked = viewer.pick({
-          x: event.clientX - rect.left,
-          y: event.clientY - rect.top
-        });
-        if (prevPicked !== null && picked !== null && picked.target() === prevPicked.atom) {
-          return;
-        }
-        if (prevPicked !== null) {
-          // Reset color of previously picked atom
-          setColorForAtom(prevPicked.node, prevPicked.atom, prevPicked.color);
-        }
-        if (picked !== null) {
-          var atom = picked.target();
-          document.getElementById('picked-atom-name').innerHTML = atom.qualifiedName();
-          var color = [0, 0, 0, 0];
-          picked.node().getColorForAtom(atom, color);
-          prevPicked = { atom: atom, color: color, node: picked.node() };
-          setColorForAtom(picked.node(), atom, 'red');
-        } else {
-          document.getElementById('picked-atom-name').innerHTML = '&nbsp;';
-          prevPicked = null;
-        }
+        node.setSelection(view);
         viewer.requestRedraw();
       });
     </script>
