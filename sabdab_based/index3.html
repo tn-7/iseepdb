@@ -31,7 +31,7 @@ var viewer = pv.Viewer(parent,
                        { width : 300, height : 300, antialias : true,
                          selectionColor : 'red' });
 
-pv.io.fetchPdb('_static/1crn.pdb', function(structure) {
+pv.io.fetchPdb('pdbs/6pv8.pdb', function(structure) {
   viewer.on('viewerReady', function() {
     viewer.cartoon('crambin', structure);
     viewer.autoZoom();
